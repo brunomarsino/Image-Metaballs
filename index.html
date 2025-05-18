@@ -1,0 +1,1507 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Metaballs - Merge & Layer Dim Debug</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="gui_styles.css">
+
+  <!-- CCapture.js and dependencies -->
+  <!-- <script src="https://unpkg.com/ccapture.js@1.1.0/build/CCapture.all.min.js"></script> -->
+  <!-- Note: For GIF, CCapture.js might require gif.js and gif.worker.js to be accessible. -->
+  <!-- We will handle GIF writer configuration if selected. -->
+
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: sans-serif;
+      /* Base background color for the page, can be overridden by theme */
+      /* background-color: #f0f0f0; */ /* Controlled by CSS variables now */
+    }
+
+    canvas {
+      display: block;
+    }
+
+    /* Styles for the file input area from previous implementation - can be moved/restyled */
+    /* #fileInputContainer { */
+      /* position: absolute; */
+      /* top: 10px; */
+      /* left: 50%; */
+      /* transform: translateX(-50%); */
+      /* z-index: 1000; */ /* Ensure it's above the canvas but potentially below a new GUI panel */
+      /* background: rgba(255, 255, 255, 0.8); */
+      /* padding: 8px; */
+      /* border-radius: 5px; */
+      /* box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); */
+    /* } */
+
+    /* #imageStatus { */
+      /* font-size: 12px; */
+      /* margin-top: 5px; */
+      /* color: #333; */
+    /* } */
+  </style>
+</head>
+
+<body>
+  <!-- File input will be moved into the custom GUI -->
+  <!-- 
+  <div id="fileInputContainer">
+    <label for="imageFolderInput">Select Image Folder: </label>
+    <input type="file" id="imageFolderInput" webkitdirectory directory multiple />
+    <div id="imageStatus">No images loaded. Using colors.</div>
+  </div>
+  -->
+
+  <!-- New GUI Container -->
+  <div id="custom-gui-container">
+    <div class="gui-panel">
+      <div class="gui-header">
+        <h2>Metaball Controls</h2>
+        <div class="header-buttons">
+          <button id="themeToggleButton" aria-label="Toggle Light/Dark Theme">☀️</button> <!-- Initial icon: sun -->
+          <button id="toggle-gui-panel">-</button> <!-- For collapsing -->
+        </div>
+      </div>
+      <div class="gui-content">
+
+        <div class="gui-section"> <!-- SECTION: Primary Setup -->
+          <h3 class="gui-section-header">Primary Setup</h3>
+          <div class="gui-section-content">
+            <div class="gui-control">
+              <label for="numBalls">Number of Balls:</label>
+              <input type="range" id="numBalls" name="numBalls" min="1" max="14">
+              <span id="numBallsValue">5</span>
+            </div>
+            <div class="gui-control">
+              <label for="ballShape">Ball Shape:</label>
+              <select id="ballShape" name="ballShape">
+                <option value="circle">Circle</option>
+                <option value="roundedSquare">Rounded Square</option>
+              </select>
+            </div>
+            <div class="gui-control image-shape-control roundedSquare-control">
+              <label for="cornerRadius">Corner Radius (Rounded Sq.):</label>
+              <input type="range" id="cornerRadius" name="cornerRadius" min="0" max="50" step="1">
+              <span id="cornerRadiusValue">10</span>
+            </div>
+            <div class="gui-control" id="fileInputContainer">
+              <label for="imageFolderInput" class="gui-button-like">Choose Image Folder</label>
+              <input type="file" id="imageFolderInput" webkitdirectory directory multiple style="display: none;" />
+              <div id="imageStatus" class="gui-status-text">No images loaded. Using colors.</div>
+            </div>
+            <div class="gui-control">
+              <button id="clearImagesButton">Clear Images</button>
+            </div>
+            <div class="gui-control">
+              <label for="colorPalette">Color Palette:</label>
+              <select id="colorPalette" name="colorPalette"></select>
+            </div>
+            <div class="gui-control">
+              <button id="randomPaletteButton">New Random Palette</button>
+            </div>
+            <div class="gui-control">
+              <label for="backgroundColor">Background Color:</label>
+              <input type="color" id="backgroundColor" name="backgroundColor">
+            </div>
+          </div>
+        </div>
+
+        <div class="gui-section"> <!-- SECTION: Effects & Blending -->
+          <h3 class="gui-section-header">Effects & Blending</h3>
+          <div class="gui-section-content">
+            <div class="gui-control">
+              <label for="blurRadius">Blur Radius (Gooeyness):</label>
+              <input type="range" id="blurRadius" name="blurRadius" min="0" max="100" step="1">
+              <span id="blurRadiusValue">20</span>
+            </div>
+            <div class="gui-control">
+              <label for="alphaThreshold">Alpha Threshold (Edge Sharpness):</label>
+              <input type="range" id="alphaThreshold" name="alphaThreshold" min="0" max="255" step="1">
+              <span id="alphaThresholdValue">210</span>
+            </div>
+            <div class="gui-control image-shape-control circle-control">
+              <label for="imageEdgeFeather">Image Edge Feather (Circle):</label>
+              <input type="range" id="imageEdgeFeather" name="imageEdgeFeather" min="0" max="0.5" step="0.01">
+              <span id="imageEdgeFeatherValue">0.3</span>
+            </div>
+            <div class="gui-control image-shape-control roundedSquare-control">
+              <label for="imageMaskBlur">Image Mask Blur (Rounded Sq.):</label>
+              <input type="range" id="imageMaskBlur" name="imageMaskBlur" min="0" max="20" step="1">
+              <span id="imageMaskBlurValue">5</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="gui-section"> <!-- SECTION: Animation & Physics -->
+          <h3 class="gui-section-header">Animation & Physics</h3>
+          <div class="gui-section-content">
+            <div class="gui-control">
+              <label for="speedMultiplier">Animation Speed:</label>
+              <input type="range" id="speedMultiplier" name="speedMultiplier" min="0.1" max="3" step="0.1">
+              <span id="speedMultiplierValue">1.0</span>
+            </div>
+
+            <p class="gui-subsection-title">Ball Size & Distribution</p>
+            <div class="gui-control">
+              <label for="randomizeBallRadii">Randomize Radii:</label>
+              <input type="checkbox" id="randomizeBallRadii" name="randomizeBallRadii">
+            </div>
+            <div class="gui-control">
+              <label for="minRadiusFactor">Min Radius Factor:</label>
+              <input type="range" id="minRadiusFactor" name="minRadiusFactor" min="0.01" max="0.5" step="0.01">
+              <span id="minRadiusFactorValue">0.08</span>
+            </div>
+            <div class="gui-control">
+              <label for="maxRadiusFactor">Max Radius Factor:</label>
+              <input type="range" id="maxRadiusFactor" name="maxRadiusFactor" min="0.02" max="0.6" step="0.01">
+              <span id="maxRadiusFactorValue">0.20</span>
+            </div>
+
+            <p class="gui-subsection-title">Shape Oscillation (Breathing)</p>
+            <div class="gui-control">
+              <label for="shapeOscillationStrength">Strength:</label>
+              <input type="range" id="shapeOscillationStrength" name="shapeOscillationStrength" min="0" max="0.3" step="0.01">
+              <span id="shapeOscillationStrengthValue">0.06</span>
+            </div>
+
+            <p class="gui-subsection-title">Collision Deformation</p>
+            <div class="gui-control">
+              <label for="collisionSquashDuration">Squash Duration:</label>
+              <input type="range" id="collisionSquashDuration" name="collisionSquashDuration" min="1" max="30" step="1">
+              <span id="collisionSquashDurationValue">8</span>
+            </div>
+            <div class="gui-control">
+              <label for="collisionReboundSettleTime">Rebound Settle Time:</label>
+              <input type="range" id="collisionReboundSettleTime" name="collisionReboundSettleTime" min="5" max="60" step="1">
+              <span id="collisionReboundSettleTimeValue">30</span>
+            </div>
+            <div class="gui-control">
+              <label for="collisionReboundOvershoot">Rebound Overshoot:</label>
+              <input type="range" id="collisionReboundOvershoot" name="collisionReboundOvershoot" min="0" max="1" step="0.01">
+              <span id="collisionReboundOvershootValue">0.45</span>
+            </div>
+            <div class="gui-control">
+              <label for="collisionReboundDamping">Rebound Damping:</label>
+              <input type="range" id="collisionReboundDamping" name="collisionReboundDamping" min="0.01" max="0.5" step="0.01">
+              <span id="collisionReboundDampingValue">0.18</span>
+            </div>
+            <div class="gui-control">
+              <label for="collisionMinDeform">Min Deformation:</label>
+              <input type="range" id="collisionMinDeform" name="collisionMinDeform" min="0" max="0.2" step="0.01">
+              <span id="collisionMinDeformValue">0.05</span>
+            </div>
+            <div class="gui-control">
+              <label for="collisionMaxDeform">Max Deformation:</label>
+              <input type="range" id="collisionMaxDeform" name="collisionMaxDeform" min="0.05" max="0.5" step="0.01">
+              <span id="collisionMaxDeformValue">0.20</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="gui-section"> <!-- SECTION: Utilities -->
+          <h3 class="gui-section-header">Utilities</h3>
+          <div class="gui-section-content">
+            <div class="gui-control">
+              <button id="resetSimulationButton">Reset Simulation</button>
+            </div>
+            <!-- Presets Section nested here -->
+            <div class="gui-section" style="margin-left:0; margin-right:0; margin-top:15px;"> 
+              <h3 class="gui-section-header" style="border-radius: var(--radius-medium) var(--radius-medium) 0 0; border-bottom: 1px solid var(--section-border-color);">Presets</h3>
+              <div class="gui-section-content">
+                <div class="gui-control">
+                  <label for="presetManagerSelect">Manage Presets:</label>
+                  <select id="presetManagerSelect" name="presetManagerSelect"></select>
+                </div>
+                <div class="gui-control">
+                  <label for="presetNameInput">Preset Name:</label>
+                  <input type="text" id="presetNameInput" name="presetNameInput">
+                </div>
+                <div class="gui-control preset-actions">
+                  <button id="presetLoadButton">Load Selected</button>
+                  <button id="presetSaveUpdateButton">Save/Update</button>
+                  <button id="presetDeleteButton" disabled>Delete Selected</button> 
+                </div>
+              </div>
+            </div>
+            <!-- Animation Recording Section nested here -->
+            <div class="gui-section" style="margin-left:0; margin-right:0; margin-top:15px;">
+              <h3 class="gui-section-header" style="border-radius: var(--radius-medium) var(--radius-medium) 0 0; border-bottom: 1px solid var(--section-border-color);">Animation Recording</h3>
+              <div class="gui-section-content">
+                <div class="gui-control">
+                  <label for="recordingDuration">Duration (for PNG Sequence):</label>
+                  <select id="recordingDuration" name="recordingDuration">
+                    <option value="5">5 seconds</option>
+                    <option value="10">10 seconds</option>
+                    <option value="15">15 seconds</option>
+                    <option value="30">30 seconds</option>
+                  </select>
+                </div>
+                <div class="gui-control">
+                  <button id="startRecordingButton">Start PNG Sequence Recording</button>
+                </div>
+                <div class="gui-control">
+                  <label for="recordingStatus">Status:</label>
+                  <p id="recordingStatus" class="gui-status-text">Idle</p>
+                  <p class="gui-status-text" style="font-size: 10px; margin-top: 5px;">(Note: Recording saves individual PNG frames to your downloads folder. These can be combined into a video using third-party software.)</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div> <!-- gui-content end -->
+    </div> <!-- gui-panel end -->
+  </div>
+  <!-- End New GUI Container -->
+
+  <!-- <button id="themeToggleButton" aria-label="Toggle Light/Dark Theme">🌓</button> --> <!-- Moved to header -->
+
+  <script>
+    let balls = [];
+    let metaballLayer;
+    let loadedImages = [];
+    let sharpContentLayer;
+    let rawLoadedImages = [];
+    let imagesLoading = 0;
+    let imagesLoadedCount = 0;
+    let ballIdCounter = 0;
+    let randomPaletteCounter = 1;
+    let deformationBuffer = null;
+    let cachedBgRgb = null; // Added for caching
+
+    window.appInterface = {}; // Define the new namespace
+
+    // Function to convert HSL color string to HEX using p5.js color conversion
+    function hslToHexHelperP5(hslString) {
+        if (typeof p5 !== 'undefined' && typeof color !== 'undefined') {
+            let c = color(hslString); // p5.js color function
+            return c.toString('#rrggbb'); // Returns hex string like #RRGGBB
+        }
+        // Fallback or error handling if p5.js color function is not available
+        console.warn("hslToHexHelperP5 called without p5 context or color function, returning black.");
+        return "#000000";
+    }
+
+    // Function to generate a new random palette
+    function generateRandomPalette(numColors = 5) {
+        let baseHue = Math.random() * 360;
+        let newPaletteColorsHSL = [];
+        // Using analogous colors with varying saturation/lightness for harmony
+        for (let i = 0; i < numColors; i++) {
+            let hue = (baseHue + i * (30 + Math.random() * 30)) % 360; // Spread hues somewhat randomly but clustered
+            let saturation = 60 + Math.random() * 40; // 60-100%
+            let lightness = 50 + Math.random() * 25;  // 50-75% (avoiding too dark/light)
+            newPaletteColorsHSL.push(`hsl(${hue.toFixed(0)}, ${saturation.toFixed(0)}%, ${lightness.toFixed(0)}%)`);
+        }
+        
+        const newPaletteName = `Random Palette ${randomPaletteCounter++}`;
+        // Convert HSL strings to HEX for storage, as expected by the rest of the system
+        const newPaletteColorsHEX = newPaletteColorsHSL.map(hslStr => hslToHexHelperP5(hslStr));
+        
+        return { name: newPaletteName, colors: newPaletteColorsHEX };
+    }
+
+    const USER_PRESETS_LOCALSTORAGE_KEY = "metaballUserPresets_v1";
+
+    // Constants for collision deformation
+    const SQUASH_DURATION_FRAMES = 8; 
+    const REBOUND_SETTLE_TIME_FRAMES = 30;
+    const REBOUND_INITIAL_OVERSHOOT_FACTOR = 0.45;
+    const REBOUND_OSCILLATION_ANGULAR_FREQUENCY = Math.PI / 7;
+    const REBOUND_DAMPING_FACTOR = 0.18;
+
+    const MIN_IMPACT_SPEED_FOR_DEFORM = 0.3;
+    const MAX_IMPACT_SPEED_FOR_DEFORM = 3.0;
+    const MIN_DEFORMATION_AMOUNT = 0.05; 
+    const MAX_DEFORMATION_AMOUNT = 0.20; 
+    const MIN_DEFORM_MULTIPLIER = 0.2; 
+
+    const MAX_BALLS_CONFIGURABLE = 14;
+    const MAX_IMAGE_DIMENSION = 300;
+    const POSTERIZE_LEVELS = 4;
+    const DEBUG_DRAW_BOUNDARY = false;
+
+    const colorPalettes = [
+      {
+        name: "Retro Vibrant",
+        colors: ['#FF3C3C', '#FF9650', '#3C64FF', '#FF64B4', '#64C8FF', '#64FF64', '#FFD700']
+      },
+      {
+        name: "Sunset Bliss",
+        colors: ['#FF6B6B', '#FFD166', '#FCB9B2', '#E9AFA3', '#D39C92']
+      },
+      {
+        name: "Forest Calm",
+        colors: ['#2D6A4F', '#40916C', '#52B788', '#74C69D', '#95D5B2']
+      },
+      {
+        name: "Ocean Deep",
+        colors: ['#006992', '#0081A7', '#0096C7', '#23C9FF', '#48CAE4']
+      },
+      {
+        name: "Pastel Dreams",
+        colors: ['#ffb3ba', '#ffdfba', '#ffffba', '#baffc9', '#bae1ff']
+      },
+      {
+        name: "Monochrome Cool",
+        colors: ['#E0E1DD', '#C7C8CC', '#ADB2D3', '#8A92C2', '#6473AE']
+      }
+    ];
+
+    const builtInPresets = [
+      {
+        name: "-- Select Preset --", // Placeholder
+        settings: null // No action for placeholder
+      },
+      {
+        name: "Calm Goo",
+        settings: {
+          numBalls: 5,
+          speedMultiplier: 0.6,
+          blurRadius: 35,
+          alphaThreshold: 180,
+          currentPaletteName: "Forest Calm",
+          shapeOscillationStrength: 0.03,
+          collisionSquashDuration: 10,
+          collisionReboundSettleTime: 20,
+          collisionReboundOvershoot: 0.2,
+          collisionReboundDamping: 0.25,
+          collisionMinDeform: 0.03,
+          collisionMaxDeform: 0.10,
+          // These will also be part of user presets later
+          ballShape: 'circle',
+          imageEdgeFeather: 0.30,
+          imageMaskBlur: 5,
+          cornerRadius: 10,
+          randomizeBallRadii: true,
+          minRadiusFactor: 0.08,
+          maxRadiusFactor: 0.20,
+          backgroundColor: '#f5f5eb'
+        }
+      },
+      {
+        name: "Bouncy Bubbles",
+        settings: {
+          numBalls: 7,
+          speedMultiplier: 1.0,
+          blurRadius: 15,
+          alphaThreshold: 200,
+          currentPaletteName: "Pastel Dreams",
+          shapeOscillationStrength: 0.15,
+          collisionSquashDuration: 6,
+          collisionReboundSettleTime: 35,
+          collisionReboundOvershoot: 0.6,
+          collisionReboundDamping: 0.15,
+          collisionMinDeform: 0.08,
+          collisionMaxDeform: 0.25,
+          ballShape: 'circle',
+          imageEdgeFeather: 0.20, 
+          imageMaskBlur: 3,
+          cornerRadius: 15,
+          randomizeBallRadii: false,
+          minRadiusFactor: 0.10,
+          maxRadiusFactor: 0.15,
+          backgroundColor: '#f0f8ff'
+        }
+      },
+      {
+        name: "Energetic Collision",
+        settings: {
+          numBalls: 10,
+          speedMultiplier: 1.3,
+          blurRadius: 25,
+          alphaThreshold: 210,
+          currentPaletteName: "Retro Vibrant",
+          shapeOscillationStrength: 0.10,
+          collisionSquashDuration: 5,
+          collisionReboundSettleTime: 25,
+          collisionReboundOvershoot: 0.5,
+          collisionReboundDamping: 0.10,
+          collisionMinDeform: 0.10,
+          collisionMaxDeform: 0.30,
+          ballShape: 'roundedSquare',
+          imageEdgeFeather: 0.30, // Not used for roundedSquare, but saved
+          imageMaskBlur: 7,
+          cornerRadius: 20,
+          randomizeBallRadii: true,
+          minRadiusFactor: 0.05,
+          maxRadiusFactor: 0.22,
+          backgroundColor: '#2c2c2c'
+        }
+      }
+    ];
+
+    window.appInterface.settings = {
+      ballShape: 'circle', 
+      cornerRadius: 10,    
+      imageEdgeFeather: 0.30, 
+      imageMaskBlur: 5,      
+      shapeOscillationStrength: 0.06, 
+      numBalls: 5,
+      speedMultiplier: 1.0,
+      backgroundColor: '#f5f5eb',
+      blurRadius: 20,
+      alphaThreshold: 210,
+      useImages: false,
+      currentPaletteName: colorPalettes[0].name, 
+      activeColors: [...colorPalettes[0].colors], 
+      currentPresetName: builtInPresets[0].name, 
+      newPresetName: "My Preset",
+      randomizeBallRadii: true,
+      minRadiusFactor: 0.08,
+      maxRadiusFactor: 0.20,
+      collisionSquashDuration: SQUASH_DURATION_FRAMES, 
+      collisionReboundSettleTime: REBOUND_SETTLE_TIME_FRAMES, 
+      collisionReboundOvershoot: REBOUND_INITIAL_OVERSHOOT_FACTOR, 
+      collisionReboundDamping: REBOUND_DAMPING_FACTOR, 
+      collisionMinDeform: MIN_DEFORMATION_AMOUNT, 
+      collisionMaxDeform: MAX_DEFORMATION_AMOUNT, 
+      
+      // Recording Settings - Simplified for PNG sequence only
+      recordingDurationSeconds: 5, 
+      recordingStatusMessage: "Idle",
+      isRecording: false,            
+      frameCountForRecording: 0,   
+      totalFramesToRecord: 0,      
+      recordingFolderName: "", // Added for organizing PNGs
+
+      resetSimulation: () => {
+        initializeBalls();
+      },
+      clearImages: () => {
+        loadedImages.forEach(asset => { if (asset.remove) asset.remove(); });
+        loadedImages = [];
+        rawLoadedImages = [];
+        imagesLoadedCount = 0;
+        window.appInterface.settings.useImages = false;
+        document.getElementById('imageStatus').innerText = "Images cleared. Using colors.";
+        const imageFolderInput = document.getElementById('imageFolderInput');
+        if(imageFolderInput) imageFolderInput.value = null;
+        initializeBalls();
+        if (metaballLayer) {
+          console.log(`IMAGES CLEARED & BALLS INIT: metaballLayer dims: ${metaballLayer.width}x${metaballLayer.height}. Global w/h: ${width}x${height}`);
+        }
+      }
+    };
+
+    function hexToRgb(hex) {
+      let r = 0, g = 0, b = 0;
+      if (hex.length == 4) { r = parseInt("0x" + hex[1] + hex[1]); g = parseInt("0x" + hex[2] + hex[2]); b = parseInt("0x" + hex[3] + hex[3]); }
+      else if (hex.length == 7) { r = parseInt("0x" + hex[1] + hex[2]); g = parseInt("0x" + hex[3] + hex[4]); b = parseInt("0x" + hex[5] + hex[6]); }
+      return [r, g, b];
+    }
+
+    class Ball {
+        constructor(x, y, r, initialContent, isImage = false) {
+          this.id = ballIdCounter++;
+          this.pos = createVector(x, y);
+          this.baseVel = p5.Vector.random2D().mult(random(0.5, 1.2));
+          this.vel = this.baseVel.copy().mult(window.appInterface.settings.speedMultiplier);
+          this.radius = r; 
+          this.diameter = r * 2; // Store base diameter
+          this.baseRadius = r;
+
+          // Z-coordinate for depth (0 = far, 1 = near) and oscillation
+          this.zOscillationOffset = random(TWO_PI); 
+          this.z = map(sin(this.zOscillationOffset), -1, 1, 0.1, 0.9); 
+
+          // Aspect ratio oscillation
+          this.aspectOscillationOffset = random(TWO_PI); // Random phase for shape oscillation
+          this.shapeOscillationSpeed = 0.06; // Speed of shape oscillation - updated default
+
+          this.collisionAnim = {
+            active: false,
+            state: 'idle', // 'squashing', 'rebounding'
+            timer: 0,
+            duration: 0,
+            angle: 0, 
+            maxDeformation: 0, 
+            currentDeformationValue: 0 
+          };
+
+          this.isImage = isImage;
+          if (isImage) {
+            this.img = initialContent; // This is the pre-processed p5.Graphics asset
+            this.rgbColor = null;
+            this.hexColor = null;
+          } else {
+            this.img = null;
+            this.hexColor = initialContent;
+            this.rgbColor = hexToRgb(this.hexColor);
+          }
+        }
+
+        _processCollisionAnimation() {
+          // Process active collision animation state
+          if (this.collisionAnim.active) {
+            this.collisionAnim.timer--;
+            if (this.collisionAnim.state === 'squashing') {
+              let timeProgress = (this.collisionAnim.duration - max(0, this.collisionAnim.timer)) / this.collisionAnim.duration;
+              let squashFactor = Math.sin(timeProgress * Math.PI / 2); 
+              this.collisionAnim.currentDeformationValue = -this.collisionAnim.maxDeformation * squashFactor;
+              
+              if (this.collisionAnim.timer <= 0) {
+                this.collisionAnim.state = 'rebounding';
+                this.collisionAnim.duration = window.appInterface.settings.collisionReboundSettleTime; 
+                this.collisionAnim.timer = this.collisionAnim.duration;
+              }
+            } else if (this.collisionAnim.state === 'rebounding') {
+              let timeInRebound = this.collisionAnim.duration - max(0, this.collisionAnim.timer);
+              let initialStretchAmplitude = this.collisionAnim.maxDeformation * window.appInterface.settings.collisionReboundOvershoot;
+              let dampingEnvelope = Math.exp(-window.appInterface.settings.collisionReboundDamping * (timeInRebound / this.collisionAnim.duration) * 5);
+
+              this.collisionAnim.currentDeformationValue = 
+                initialStretchAmplitude * 
+                dampingEnvelope * 
+                Math.sin(REBOUND_OSCILLATION_ANGULAR_FREQUENCY * timeInRebound); // Using constant for frequency
+
+              if (this.collisionAnim.timer <= 0) {
+                this.collisionAnim.active = false;
+                this.collisionAnim.state = 'idle';
+                this.collisionAnim.currentDeformationValue = 0;
+              }
+            }
+          }
+        }
+
+        _handleInteractionsAndCollisions(allBalls) {
+          let isInteracting = false;
+          const interactionBlurFactor = 0.75; 
+
+          for (let otherBall of allBalls) {
+            if (this === otherBall) continue; 
+
+            let distance = dist(this.pos.x, this.pos.y, otherBall.pos.x, otherBall.pos.y);
+            let sumOfRadii = this.radius + otherBall.radius;
+
+            let zLockInteractionDistance = sumOfRadii + window.appInterface.settings.blurRadius * interactionBlurFactor;
+            if (distance < zLockInteractionDistance) {
+              isInteracting = true;
+            }
+
+            if (distance < sumOfRadii) { 
+              if (!this.collisionAnim.active && !otherBall.collisionAnim.active) { // Ensure both are not already in an animation to avoid re-triggering
+                let normal = p5.Vector.sub(otherBall.pos, this.pos); 
+                if (normal.magSq() === 0) normal = p5.Vector.random2D(); 
+                else normal.normalize();
+                
+                let relativeVelocity = p5.Vector.sub(this.vel, otherBall.vel);
+                let impactSpeed = relativeVelocity.dot(normal); 
+
+                if (impactSpeed > MIN_IMPACT_SPEED_FOR_DEFORM) { 
+                  let deformation = map(impactSpeed, MIN_IMPACT_SPEED_FOR_DEFORM, MAX_IMPACT_SPEED_FOR_DEFORM, window.appInterface.settings.collisionMinDeform, window.appInterface.settings.collisionMaxDeform, true);
+                  
+                  // Apply to this ball
+                  this.collisionAnim.active = true;
+                  this.collisionAnim.state = 'squashing';
+                  this.collisionAnim.duration = window.appInterface.settings.collisionSquashDuration;
+                  this.collisionAnim.timer = this.collisionAnim.duration;
+                  this.collisionAnim.angle = normal.heading();
+                  this.collisionAnim.maxDeformation = deformation;
+
+                  // Apply to other ball
+                  otherBall.collisionAnim.active = true;
+                  otherBall.collisionAnim.state = 'squashing';
+                  otherBall.collisionAnim.duration = window.appInterface.settings.collisionSquashDuration;
+                  otherBall.collisionAnim.timer = otherBall.collisionAnim.duration;
+                  otherBall.collisionAnim.angle = p5.Vector.mult(normal, -1).heading();
+                  otherBall.collisionAnim.maxDeformation = deformation;
+                }
+              }
+            }
+          }
+          return isInteracting;
+        }
+
+        _updateZPosition(isInteractingForZLock) {
+          if (!isInteractingForZLock) {
+            this.z = map(sin(frameCount * 0.005 + this.zOscillationOffset), -1, 1, 0.1, 0.9);
+          } 
+        }
+
+        _applyMovement() {
+          let intendedVel = this.baseVel.copy().mult(window.appInterface.settings.speedMultiplier);
+          this.pos.add(intendedVel);
+          this.vel = intendedVel; 
+        }
+
+        update() {
+          this._processCollisionAnimation();
+          let isInteractingForZLock = this._handleInteractionsAndCollisions(balls); 
+          this._updateZPosition(isInteractingForZLock);
+          this._applyMovement();
+          
+          const { effectiveWidthRadius, effectiveHeightRadius } = this._calculateEffectiveRadii();
+          this._applyBoundaryChecks(effectiveWidthRadius, effectiveHeightRadius);
+        }
+
+        _calculateEffectiveRadii() {
+          const appSettings = window.appInterface.settings; // Cache settings object
+          let oscillation = sin(frameCount * this.shapeOscillationSpeed + this.aspectOscillationOffset);
+          let widthMultiplier = 1 + oscillation * appSettings.shapeOscillationStrength;
+          let heightMultiplier = 1 - oscillation * appSettings.shapeOscillationStrength;
+          
+          let currentWidthRadius = this.radius * max(MIN_DEFORM_MULTIPLIER, widthMultiplier);
+          let currentHeightRadius = this.radius * max(MIN_DEFORM_MULTIPLIER, heightMultiplier);
+          
+          if(this.collisionAnim.active) {
+              let deformAngle = this.collisionAnim.angle;
+              let deformVal = this.collisionAnim.currentDeformationValue;
+              let scaleAlongDeformAxis = max(MIN_DEFORM_MULTIPLIER, 1 + deformVal);
+              let scalePerpendicularToDeformAxis = max(MIN_DEFORM_MULTIPLIER, 1 - deformVal);
+
+              let c = abs(cos(deformAngle));
+              let s = abs(sin(deformAngle));
+              let effRadiusX = this.radius * (widthMultiplier * scaleAlongDeformAxis * c + heightMultiplier * scalePerpendicularToDeformAxis * s);
+              let effRadiusY = this.radius * (widthMultiplier * scaleAlongDeformAxis * s + heightMultiplier * scalePerpendicularToDeformAxis * c);
+              currentWidthRadius = max(currentWidthRadius, effRadiusX);
+              currentHeightRadius = max(currentHeightRadius, effRadiusY);
+          }
+          return { effectiveWidthRadius: currentWidthRadius, effectiveHeightRadius: currentHeightRadius };
+        }
+
+        _applyBoundaryChecks(currentWidthRadius, currentHeightRadius) {
+          if (this.pos.x - currentWidthRadius < 0) {
+            this.pos.x = currentWidthRadius;
+            this.vel.x *= -1; this.baseVel.x *= -1;
+          } else if (this.pos.x + currentWidthRadius > width) {
+            this.pos.x = width - currentWidthRadius;
+            this.vel.x *= -1; this.baseVel.x *= -1;
+          }
+
+          if (this.pos.y - currentHeightRadius < 0) {
+            this.pos.y = currentHeightRadius;
+            this.vel.y *= -1; this.baseVel.y *= -1;
+          } else if (this.pos.y + currentHeightRadius > height) {
+            this.pos.y = height - currentHeightRadius;
+            this.vel.y *= -1; this.baseVel.y *= -1;
+          }
+        }
+
+        _calculateBaseDrawDimensions() {
+          const appSettings = window.appInterface.settings; // Cache settings object
+          let baseOscillation = sin(frameCount * this.shapeOscillationSpeed + this.aspectOscillationOffset);
+          let baseWidthMultiplier = 1 + baseOscillation * appSettings.shapeOscillationStrength;
+          let baseHeightMultiplier = 1 - baseOscillation * appSettings.shapeOscillationStrength;
+          
+          baseWidthMultiplier = max(MIN_DEFORM_MULTIPLIER, baseWidthMultiplier);
+          baseHeightMultiplier = max(MIN_DEFORM_MULTIPLIER, baseHeightMultiplier);
+
+          let drawWidth = this.diameter * baseWidthMultiplier;
+          let drawHeight = this.diameter * baseHeightMultiplier;
+
+          return {
+            iDrawWidth: Math.floor(drawWidth),
+            iDrawHeight: Math.floor(drawHeight)
+          };
+        }
+
+        _displayDeformedImage(pg, iDrawWidth, iDrawHeight) {
+          // --- Image with active collision deformation: Use deformationBuffer --- 
+          deformationBuffer.clear(); 
+          deformationBuffer.push(); // Outer push for buffer state
+          deformationBuffer.translate(deformationBuffer.width / 2, deformationBuffer.height / 2);
+
+          let deformAngle = this.collisionAnim.angle;
+          let deformVal = this.collisionAnim.currentDeformationValue;
+          let scaleAlongAxis = max(MIN_DEFORM_MULTIPLIER, 1 + deformVal);    
+          let scalePerpToAxis = max(MIN_DEFORM_MULTIPLIER, 1 - deformVal); 
+
+          deformationBuffer.push(); // Inner push for image-specific transforms
+          deformationBuffer.rotate(-deformAngle); 
+          deformationBuffer.scale(scaleAlongAxis, scalePerpToAxis); 
+          deformationBuffer.image(this.img, 0, 0, iDrawWidth, iDrawHeight); 
+          deformationBuffer.pop(); // End inner push
+          
+          deformationBuffer.pop(); // End outer buffer state push
+
+          pg.push();
+          pg.translate(this.pos.x, this.pos.y);
+          pg.rotate(deformAngle); 
+          pg.imageMode(CENTER);
+          pg.image(deformationBuffer, 0, 0); 
+          pg.pop();  
+        }
+
+        _displayStandard(pg, iDrawWidth, iDrawHeight) {
+          // --- Color balls, or Images NOT in active collision deformation --- 
+          const appSettings = window.appInterface.settings; // Cache settings object
+          pg.push();
+          pg.translate(this.pos.x, this.pos.y);
+
+          if (this.collisionAnim.active) { // This path now mainly for color balls deforming
+            let deformAngle = this.collisionAnim.angle;
+            let deformVal = this.collisionAnim.currentDeformationValue;
+            let scaleAlongDeformAxis = max(MIN_DEFORM_MULTIPLIER, 1 + deformVal);
+            let scalePerpendicularToDeformAxis = max(MIN_DEFORM_MULTIPLIER, 1 - deformVal);
+            pg.rotate(deformAngle);
+            pg.scale(scaleAlongDeformAxis, scalePerpendicularToDeformAxis);
+          }
+
+          pg.rectMode(CENTER); 
+          pg.ellipseMode(CENTER);
+          pg.noStroke(); 
+
+          if (this.isImage && this.img && this.img.width > 0) { // Non-colliding image
+            pg.push(); 
+            pg.imageMode(CENTER);
+            pg.image(this.img, 0, 0, iDrawWidth, iDrawHeight); 
+            pg.pop();  
+          } else if (!this.isImage) { // Color ball (colliding or not)
+            pg.fill(this.rgbColor[0], this.rgbColor[1], this.rgbColor[2], 255); 
+            if (appSettings.ballShape === 'circle') {
+              pg.ellipse(0, 0, iDrawWidth, iDrawHeight); 
+            } else { // Assumes 'roundedSquare' is the only other option
+              let baseDimensionForCr = this.diameter; 
+              let scaledCr = appSettings.cornerRadius * (min(iDrawWidth, iDrawHeight) / baseDimensionForCr);
+              scaledCr = min(scaledCr, min(iDrawWidth, iDrawHeight) / 2); 
+              pg.rect(0, 0, iDrawWidth, iDrawHeight, scaledCr); 
+            }
+          }
+          pg.pop();
+        }
+
+        display(pg) { 
+          const { iDrawWidth, iDrawHeight } = this._calculateBaseDrawDimensions();
+
+          if (this.isImage && this.img && this.img.width > 0 && this.collisionAnim.active) {
+            this._displayDeformedImage(pg, iDrawWidth, iDrawHeight);
+          } else {
+            this._displayStandard(pg, iDrawWidth, iDrawHeight);
+          }
+        }
+
+        // New method for drawing directly to a canvas (e.g., the main canvas during recording)
+        displayDirect(targetCanvas) {
+            // Simplified rendering logic, similar to display() but targets the provided canvas directly
+            // and omits complex interactions with deformationBuffer for images if it becomes too slow.
+            // For now, let's try to keep deformation if possible, but simplify if it freezes.
+            const appSettings = window.appInterface.settings; // Cache settings object
+
+            let baseOscillation = sin(frameCount * this.shapeOscillationSpeed + this.aspectOscillationOffset);
+            let baseWidthMultiplier = 1 + baseOscillation * appSettings.shapeOscillationStrength;
+            let baseHeightMultiplier = 1 - baseOscillation * appSettings.shapeOscillationStrength;
+            
+            baseWidthMultiplier = max(MIN_DEFORM_MULTIPLIER, baseWidthMultiplier);
+            baseHeightMultiplier = max(MIN_DEFORM_MULTIPLIER, baseHeightMultiplier);
+
+            let drawWidth = this.diameter * baseWidthMultiplier;
+            let drawHeight = this.diameter * baseHeightMultiplier;
+            const iDrawWidth = Math.floor(drawWidth);
+            const iDrawHeight = Math.floor(drawHeight);
+
+            targetCanvas.push();
+            targetCanvas.translate(this.pos.x, this.pos.y);
+
+            if (this.collisionAnim.active) {
+                let deformAngle = this.collisionAnim.angle;
+                let deformVal = this.collisionAnim.currentDeformationValue;
+                let scaleAlongDeformAxis = max(MIN_DEFORM_MULTIPLIER, 1 + deformVal);
+                let scalePerpendicularToDeformAxis = max(MIN_DEFORM_MULTIPLIER, 1 - deformVal);
+                targetCanvas.rotate(deformAngle);
+                targetCanvas.scale(scaleAlongDeformAxis, scalePerpendicularToDeformAxis);
+            }
+            
+            targetCanvas.rectMode(CENTER);
+            targetCanvas.ellipseMode(CENTER);
+            targetCanvas.noStroke();
+
+            if (this.isImage && this.img && this.img.width > 0) {
+                // Simplified image drawing for direct rendering. 
+                // No separate deformationBuffer here for max simplicity during recording.
+                // The main rotation/scale for collision is already applied.
+                targetCanvas.imageMode(CENTER);
+                targetCanvas.image(this.img, 0, 0, iDrawWidth, iDrawHeight);
+            } else if (!this.isImage) {
+                targetCanvas.fill(this.rgbColor[0], this.rgbColor[1], this.rgbColor[2], 255);
+                if (appSettings.ballShape === 'circle') {
+                    targetCanvas.ellipse(0, 0, iDrawWidth, iDrawHeight);
+                } else if (appSettings.ballShape === 'square') {
+                    targetCanvas.rect(0, 0, iDrawWidth, iDrawHeight);
+              } else { // roundedSquare
+                    let baseDimensionForCr = this.diameter;
+                    let scaledCr = appSettings.cornerRadius * (min(iDrawWidth, iDrawHeight) / baseDimensionForCr);
+                    scaledCr = min(scaledCr, min(iDrawWidth, iDrawHeight) / 2);
+                    targetCanvas.rect(0, 0, iDrawWidth, iDrawHeight, scaledCr);
+                }
+            }
+            targetCanvas.pop();
+        }
+
+        setColor(hexColor) {
+          if (!this.isImage) {
+            this.hexColor = hexColor;
+            this.rgbColor = hexToRgb(hexColor);
+          }
+        }
+      }
+
+    function initializeBalls() {
+      const appSettings = window.appInterface.settings; // Cache settings object
+      ballIdCounter = 0;
+      balls = [];
+      let smallerDim = min(width, height);
+      for (let i = 0; i < appSettings.numBalls; i++) {
+        let r;
+        if (appSettings.randomizeBallRadii) {
+          r = random(smallerDim * appSettings.minRadiusFactor, smallerDim * appSettings.maxRadiusFactor);
+        } else {
+          r = smallerDim * ((appSettings.minRadiusFactor + appSettings.maxRadiusFactor) / 2);
+        }
+        let x = random(r + 1, width - r - 1);
+        let y = random(r + 1, height - r - 1);
+
+        let content;
+        let isImageBall = false;
+        if (appSettings.useImages && loadedImages.length > 0) {
+          content = loadedImages[i % loadedImages.length];
+          isImageBall = true;
+        } else {
+          // Use activeColors from the selected palette
+          if(appSettings.activeColors.length > 0) {
+            content = appSettings.activeColors[i % appSettings.activeColors.length];
+          } else {
+            content = '#FFFFFF'; // Fallback if activeColors is somehow empty
+          }
+        }
+        balls.push(new Ball(x, y, r, content, isImageBall));
+      }
+    }
+
+    // Expects a raw p5.Image, already cropped to a square.
+    // This function will handle resizing, posterization, and shape-specific masking.
+    function createPreProcessedImageAsset(rawSquareP5Image) {
+      const appSettings = window.appInterface.settings; // Cache settings object
+
+      // 1. Create a copy for processing to keep the original in rawLoadedImages pristine
+      let imgToProcess = rawSquareP5Image.get();
+
+      // 2. Resize the copy if it exceeds MAX_IMAGE_DIMENSION
+      if (imgToProcess.width > MAX_IMAGE_DIMENSION) { // Height will be the same as it's a square
+        imgToProcess.resize(MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION);
+      }
+      // If it's smaller than or equal to MAX_IMAGE_DIMENSION, use its current size.
+
+      // 3. Apply posterization to the copy
+      if (POSTERIZE_LEVELS > 1 && POSTERIZE_LEVELS < 256) {
+        imgToProcess.filter(POSTERIZE, POSTERIZE_LEVELS);
+      }
+
+      // 4. Determine assetDim based on the (potentially resized) copy
+      let assetDim = imgToProcess.width; // It's a square, so width is fine
+
+      // 5. Create the preProcessedAsset graphics buffer
+      let preProcessedAsset = createGraphics(assetDim, assetDim); 
+      preProcessedAsset.pixelDensity(1);
+      preProcessedAsset.imageMode(CENTER);
+      preProcessedAsset.rectMode(CENTER); 
+      preProcessedAsset.ellipseMode(CENTER); 
+      preProcessedAsset.clear();
+
+      // 6. Draw the processed copy (imgToProcess) into preProcessedAsset
+      // Image is already square and at the correct assetDim, so draw it centered directly.
+      preProcessedAsset.image(imgToProcess, assetDim / 2, assetDim / 2, assetDim, assetDim);
+
+      // 7. Apply alpha mask based on window.appInterface.settings.ballShape
+      if (appSettings.ballShape === 'circle') {
+          preProcessedAsset.loadPixels();
+          let assetRadius = assetDim / 2;
+          let centerX = assetDim / 2;
+          let centerY = assetDim / 2;
+          let featherEdgeWidth = assetRadius * appSettings.imageEdgeFeather;
+          let innerSolidRadius = assetRadius - featherEdgeWidth;
+          if (innerSolidRadius < 0) innerSolidRadius = 0;
+
+          for (let y_px = 0; y_px < assetDim; y_px++) { 
+              for (let x_px = 0; x_px < assetDim; x_px++) { 
+                  let d = dist(x_px, y_px, centerX, centerY);
+                  let index = (x_px + y_px * assetDim) * 4;
+                  if (d <= innerSolidRadius) {
+                      preProcessedAsset.pixels[index + 3] = 255;
+                  } else if (d <= assetRadius) {
+                      let localAlpha = 1.0 - (d - innerSolidRadius) / featherEdgeWidth;
+                      preProcessedAsset.pixels[index + 3] = Math.max(0, Math.min(255, 255 * localAlpha));
+                  } else { 
+                      preProcessedAsset.pixels[index + 3] = 0;
+                  }
+              }
+          }
+          preProcessedAsset.updatePixels();
+      } else if (appSettings.ballShape === 'roundedSquare') {
+          let maskGraphic = createGraphics(assetDim, assetDim);
+          maskGraphic.pixelDensity(1);
+          maskGraphic.rectMode(CENTER);
+          maskGraphic.noStroke();
+          maskGraphic.fill(255);
+          // For roundedSquare, cornerRadius is a percentage of MAX_IMAGE_DIMENSION, 
+          // but it should be scaled relative to the *actual* assetDim if assetDim is smaller.
+          // Let's assume window.appInterface.settings.cornerRadius is intended as a pixel value for a MAX_IMAGE_DIMENSION sized asset.
+          // So, we scale it down if assetDim is smaller.
+          let scaledAssetCornerRadius = appSettings.cornerRadius * (assetDim / MAX_IMAGE_DIMENSION); 
+          // However, p5.js rect corner radius is absolute. And the original logic used: 
+          // window.appInterface.settings.cornerRadius * (assetDim / MAX_IMAGE_DIMENSION) which is a bit confusing.
+          // Let's simplify: If cornerRadius is intended to be a general value, it should be scaled to the current assetDim.
+          // The original form: let scaledAssetCornerRadius = window.appInterface.settings.cornerRadius * (assetDim / MAX_IMAGE_DIMENSION);
+          // This implies cornerRadius GUI is calibrated against MAX_IMAGE_DIMENSION.
+          // Let's stick to the original scaling logic for cornerRadius for now.
+          scaledAssetCornerRadius = min(scaledAssetCornerRadius, assetDim / 2); 
+
+          maskGraphic.rect(assetDim / 2, assetDim / 2, assetDim, assetDim, scaledAssetCornerRadius);
+          if (appSettings.imageMaskBlur > 0) {
+             maskGraphic.filter(BLUR, appSettings.imageMaskBlur);
+          }
+          preProcessedAsset.mask(maskGraphic.get());
+          maskGraphic.remove();
+      }
+      // Removed 'square' shape option as confirmed unused.
+      
+      return preProcessedAsset; 
+    }
+
+    function handleImageFiles(files) {
+      loadedImages.forEach(asset => { if (asset.remove) asset.remove(); });
+      loadedImages = [];
+      rawLoadedImages = []; // Clear raw images as well when new files are selected
+      imagesLoadedCount = 0;
+      imagesLoading = 0;
+      let imageFiles = [];
+
+      for (let i = 0; i < files.length; i++) {
+        if (files[i].type.startsWith('image/')) {
+          imageFiles.push(files[i]);
+        }
+      }
+      imagesLoading = imageFiles.length;
+      document.getElementById('imageStatus').innerText = `Loading ${imagesLoading} images...`;
+
+      if (imagesLoading === 0) {
+        document.getElementById('imageStatus').innerText = "No valid image files found. Using colors.";
+        window.appInterface.settings.useImages = false;
+        initializeBalls();
+        return;
+      }
+
+      imageFiles.forEach(file => {
+        let reader = new FileReader();
+        reader.onload = (e) => {
+          loadImage(e.target.result, loadedP5Image => { // Renamed rawImg to loadedP5Image for clarity
+            // --- PRE-CROP TO SQUARE --- (This produces our "rawSquareP5Image")
+            let rawSquareP5Image = loadedP5Image;
+            if (rawSquareP5Image.width !== rawSquareP5Image.height) {
+              let cropSize, cropX, cropY;
+              if (rawSquareP5Image.width > rawSquareP5Image.height) {
+                cropSize = rawSquareP5Image.height;
+                cropX = (rawSquareP5Image.width - cropSize) / 2;
+                cropY = 0;
+              } else { 
+                cropSize = rawSquareP5Image.width;
+                cropX = 0;
+                cropY = (rawSquareP5Image.height - cropSize) / 2;
+              }
+              cropX = Math.floor(cropX);
+              cropY = Math.floor(cropY);
+              cropSize = Math.floor(cropSize);
+              rawSquareP5Image = rawSquareP5Image.get(cropX, cropY, cropSize, cropSize); 
+            }
+            // --- END PRE-CROP TO SQUARE ---
+
+            // --- STORE RAW SQUARE IMAGE (original resolution after crop) ---
+            rawLoadedImages.push(rawSquareP5Image); 
+
+            // --- Create final processed asset directly from the raw square image ---
+            // The new createPreProcessedImageAsset handles resizing, posterizing, and masking.
+            let processedAsset = createPreProcessedImageAsset(rawSquareP5Image); 
+            loadedImages.push(processedAsset);
+
+            imagesLoadedCount++;
+            if (imagesLoadedCount === imagesLoading) {
+              document.getElementById('imageStatus').innerText = `${imagesLoadedCount} images loaded.`;
+              window.appInterface.settings.useImages = true;
+              initializeBalls();
+              if (metaballLayer) {
+                console.log(`IMAGES LOADED & BALLS INIT (handleImageFiles): metaballLayer dims: ${metaballLayer.width}x${metaballLayer.height}. Global w/h: ${width}x${height}`);
+              }
+            } else {
+              document.getElementById('imageStatus').innerText = `Loaded ${imagesLoadedCount}/${imagesLoading} images...`;
+            }
+          }, (err) => {
+            console.error("Error loading image:", file.name, err);
+            imagesLoading--; // Decrement total images we are waiting for
+            // Check if all *successfully* loaded or *attempted* images are done
+            if (imagesLoadedCount === imagesLoading && imagesLoading > 0) { // Some succeeded, some failed, but all attempts done
+              document.getElementById('imageStatus').innerText = `${imagesLoadedCount} images loaded (some errors).`;
+              window.appInterface.settings.useImages = true;
+              initializeBalls();
+            } else if (imagesLoading === 0 && imagesLoadedCount === 0) { // All failed
+              document.getElementById('imageStatus').innerText = "Error loading all images. Using colors.";
+              window.appInterface.settings.useImages = false;
+              initializeBalls();
+            } // If imagesLoading > 0 but imagesLoadedCount < imagesLoading, still waiting for others
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function setup() {
+      let cnv = createCanvas(windowWidth, windowHeight);
+      cnv.elt.getContext('2d').willReadFrequently = true; // Optimize main canvas for frequent readbacks
+      pixelDensity(1);
+      frameRate(60);
+
+      // Initialize cachedBgRgb
+      if (window.appInterface && window.appInterface.settings) {
+        cachedBgRgb = hexToRgb(window.appInterface.settings.backgroundColor);
+      } else {
+        cachedBgRgb = [245, 245, 235]; // Fallback, same as initial default
+      }
+
+      metaballLayer = createGraphics(width, height);
+      metaballLayer.pixelDensity(1);
+      metaballLayer.elt.getContext('2d').willReadFrequently = true; // Optimize for readbacks
+
+      sharpContentLayer = createGraphics(width, height);
+      sharpContentLayer.pixelDensity(1); 
+      sharpContentLayer.elt.getContext('2d').willReadFrequently = true; // Optimize for readbacks
+
+      const deformBufferSize = MAX_IMAGE_DIMENSION * 1.5; 
+      deformationBuffer = createGraphics(deformBufferSize, deformBufferSize);
+      deformationBuffer.pixelDensity(1); 
+      deformationBuffer.imageMode(CENTER); 
+      deformationBuffer.elt.getContext('2d').willReadFrequently = true; // Optimize for readbacks
+
+      console.log(`SETUP: metaballLayer dimensions: ${metaballLayer.width} x ${metaballLayer.height}. Global w/h: ${width} x ${height}`);
+
+      const imageFolderInput = document.getElementById('imageFolderInput');
+      if (imageFolderInput) {
+        imageFolderInput.addEventListener('change', (event) => {
+        handleImageFiles(event.target.files);
+      });
+      }
+
+      initializeBalls();
+    }
+
+    function draw() {
+      // Use cachedBgRgb directly for background()
+      // let bgRgb = hexToRgb(window.appInterface.settings.backgroundColor); // Old line
+      if (!cachedBgRgb) { // Should ideally be set by setup or applyBackgroundColor
+          cachedBgRgb = hexToRgb(window.appInterface.settings.backgroundColor);
+      }
+      background(cachedBgRgb[0], cachedBgRgb[1], cachedBgRgb[2]);
+
+      const appSettings = window.appInterface.settings; // Cache settings object
+      // const currentAlphaThreshold = window.appInterface.settings.alphaThreshold; // Old line, replaced by appSettings.alphaThreshold
+
+      // Removed isCCaptureRecording check and conditional rendering paths.
+      // Always use the full-quality rendering path now.
+      
+      metaballLayer.clear();
+      sharpContentLayer.clear();
+
+      balls.sort((a, b) => a.z - b.z);
+
+      for (let ball of balls) {
+        ball.update();
+        ball.display(metaballLayer);
+        if (ball.isImage) {
+          ball.display(sharpContentLayer);
+        }
+      }
+
+      if (window.appInterface.settings.blurRadius > 0) {
+        metaballLayer.filter(BLUR, window.appInterface.settings.blurRadius);
+      }
+      
+      loadPixels();
+      metaballLayer.loadPixels();
+      sharpContentLayer.loadPixels();
+
+      for (let y_px = 0; y_px < height; y_px++) { 
+        for (let x_px = 0; x_px < width; x_px++) { 
+          let index = (x_px + y_px * width) * 4;
+          let alphaFromBlurredBase = metaballLayer.pixels[index + 3];
+
+          if (alphaFromBlurredBase > appSettings.alphaThreshold) { // Use appSettings.alphaThreshold
+            let r_blend = metaballLayer.pixels[index + 0];
+            let g_blend = metaballLayer.pixels[index + 1];
+            let b_blend = metaballLayer.pixels[index + 2];
+            let r_sharp = sharpContentLayer.pixels[index + 0];
+            let g_sharp = sharpContentLayer.pixels[index + 1];
+            let b_sharp = sharpContentLayer.pixels[index + 2];
+            let a_sharp_byte = sharpContentLayer.pixels[index + 3];
+            let final_r, final_g, final_b;
+
+            if (a_sharp_byte > 0) {
+                let norm_a_sharp = a_sharp_byte / 255.0;
+                final_r = (1.0 - norm_a_sharp) * r_blend + norm_a_sharp * r_sharp;
+                final_g = (1.0 - norm_a_sharp) * g_blend + norm_a_sharp * g_sharp;
+                final_b = (1.0 - norm_a_sharp) * b_blend + norm_a_sharp * b_sharp;
+          } else {
+                final_r = r_blend;
+                final_g = g_blend;
+                final_b = b_blend;
+            }
+            pixels[index + 0] = Math.max(0, Math.min(255, final_r));
+            pixels[index + 1] = Math.max(0, Math.min(255, final_g));
+            pixels[index + 2] = Math.max(0, Math.min(255, final_b));
+            pixels[index + 3] = 255;
+          } else {
+            pixels[index + 0] = cachedBgRgb[0]; 
+            pixels[index + 1] = cachedBgRgb[1];
+            pixels[index + 2] = cachedBgRgb[2]; 
+            pixels[index + 3] = 255; 
+          }
+        }
+      }
+      updatePixels();
+
+      if (DEBUG_DRAW_BOUNDARY) {
+        for (let ball of balls) {
+            push(); 
+            noFill();
+            strokeWeight(1);
+            rectMode(CENTER);
+            ellipseMode(CENTER);
+            let diameter = ball.radius * 2;
+            if (ball.isImage) { stroke(0, 255, 0, 100); } else { stroke(255, 0, 255, 100); }
+            if (appSettings.ballShape === 'circle') { ellipse(ball.pos.x, ball.pos.y, diameter - 1, diameter - 1); }
+            else if (appSettings.ballShape === 'square') { square(ball.pos.x, ball.pos.y, diameter - 1); }
+            else { 
+                let scaledCr = appSettings.cornerRadius * ((diameter - 1) / MAX_IMAGE_DIMENSION);
+                scaledCr = min(scaledCr, (diameter - 1) / 2);
+                rect(ball.pos.x, ball.pos.y, diameter - 1, diameter - 1, scaledCr);
+            }
+            pop();
+        }
+      }
+
+      // --- Handle Recording (Simplified for PNG Sequence Only) --- 
+      if (appSettings.isRecording) { // Use appSettings
+        if (appSettings.frameCountForRecording < appSettings.totalFramesToRecord) {
+          let frameFilename = `${appSettings.recordingFolderName}/metaball_frame_${nf(appSettings.frameCountForRecording + 1, 5)}.png`;
+          save(frameFilename); 
+          appSettings.frameCountForRecording++;
+          appSettings.recordingStatusMessage = `Rec. PNGs... ${appSettings.frameCountForRecording}/${appSettings.totalFramesToRecord}`;
+          if (typeof window.appInterface.p5Functions.updateRecordingStatusDisplay === 'function') {
+             window.appInterface.p5Functions.updateRecordingStatusDisplay(appSettings.recordingStatusMessage);
+          }
+        } else {
+          if (window.appInterface.p5Functions && typeof window.appInterface.p5Functions.stopRecording === 'function') {
+              window.appInterface.p5Functions.stopRecording(true); // true for completed
+          }
+        }
+      }
+      // --- End Handle Recording ---
+    }
+
+    // Rebuilds the `loadedImages` array from `rawLoadedImages` using current processing settings.
+    // Does NOT re-initialize balls. That should be handled by the caller if needed.
+    function reProcessLoadedImages() {
+        if (!window.appInterface.settings.useImages || rawLoadedImages.length === 0) {
+          console.log("reProcessLoadedImages: No images to re-process or not using images.");
+          return; 
+        }
+
+        console.log("reProcessLoadedImages: Re-processing image assets based on current settings...");
+        
+        // Clear previously processed assets from the loadedImages array
+        loadedImages.forEach(asset => { if (asset.remove) asset.remove(); }); // Clean up graphics buffers
+        loadedImages = [];
+
+        // Re-create processed assets from raw images
+        for (let i = 0; i < rawLoadedImages.length; i++) {
+          let rawSquareP5Image = rawLoadedImages[i];
+          if (rawSquareP5Image) { // Ensure the raw image exists
+            let newProcessedAsset = createPreProcessedImageAsset(rawSquareP5Image);
+            loadedImages.push(newProcessedAsset);
+          } else {
+            console.warn("reProcessLoadedImages: Found undefined entry in rawLoadedImages at index", i);
+          }
+        }
+        console.log("reProcessLoadedImages: Image asset re-processing complete. `loadedImages` updated.");
+      }
+
+    function windowResized() {
+        // Removed CCapture check, as capturer no longer exists
+        resizeCanvas(windowWidth, windowHeight);
+        if (metaballLayer) metaballLayer.resizeCanvas(width, height);
+        if (sharpContentLayer) sharpContentLayer.resizeCanvas(width, height);
+        if (deformationBuffer) {
+             const deformBufferSize = MAX_IMAGE_DIMENSION * 1.5;
+             deformationBuffer.resizeCanvas(deformBufferSize, deformBufferSize);
+             deformationBuffer.imageMode(CENTER); 
+        }
+        initializeBalls();
+    }
+
+    window.appInterface.p5Functions = {
+      // General
+      resetSimulation: () => {
+        if (typeof initializeBalls === 'function') { initializeBalls(); }
+      },
+      clearImages: () => {
+        if (typeof window.appInterface.settings !== 'undefined' && typeof window.appInterface.settings.clearImages === 'function') {
+            window.appInterface.settings.clearImages();
+        } else if (typeof clearImagesGlobal === 'function') {
+            clearImagesGlobal();
+        }
+      },
+      handleNumBallsChanged: (newNum) => {
+        if (typeof window.appInterface.settings !== 'undefined') { window.appInterface.settings.numBalls = parseInt(newNum, 10); }
+        if (typeof initializeBalls === 'function') { initializeBalls(); }
+      },
+      applyBackgroundColor: (color) => {
+        if (typeof window.appInterface.settings !== 'undefined') { 
+            window.appInterface.settings.backgroundColor = color; 
+            cachedBgRgb = hexToRgb(color); // Update cache
+        }
+      },
+
+      // Appearance & Effects
+      applyBlurRadiusChange: () => {
+        // The actual blur is applied in drawMetaballLayer or when the layer is recreated.
+        // No direct action needed here if drawMetaballLayer is dynamic.
+      },
+      updateBallShapesAndPreprocessing: () => {
+        console.log("p5Functions: updateBallShapesAndPreprocessing called. Shape:", window.appInterface.settings.ballShape, 
+                    "Feather:", window.appInterface.settings.imageEdgeFeather, 
+                    "MaskBlur:", window.appInterface.settings.imageMaskBlur, 
+                    "CornerR:", window.appInterface.settings.cornerRadius);
+        
+        if (typeof reProcessLoadedImages === 'function') {
+            reProcessLoadedImages(); // Rebuilds `loadedImages` based on current settings
+        }
+
+        // If images are in use, or even if not (shape might affect color balls with roundedSquare),
+        // re-initialize balls to apply new shapes and use newly processed images.
+        if (typeof initializeBalls === 'function') {
+            initializeBalls(); 
+        }
+      },
+
+      // Color Palettes
+      getColorPalettes: () => {
+        return (typeof colorPalettes !== 'undefined') ? colorPalettes : [];
+      },
+      setActivePalette: (paletteName) => {
+        if (typeof colorPalettes === 'undefined' || typeof window.appInterface.settings === 'undefined') { return; }
+        const palette = colorPalettes.find(p => p.name === paletteName);
+        if (palette) {
+            window.appInterface.settings.currentPaletteName = palette.name;
+            window.appInterface.settings.activeColors = [...palette.colors];
+            if (typeof initializeBalls === 'function') {
+                if (!window.appInterface.settings.useImages) {
+                    initializeBalls(); 
+                }
+            }
+        } else {
+            console.warn("p5Functions: Selected palette not found:", paletteName);
+        }
+      },
+      generateAndAddNewPalette: () => {
+        if (typeof generateRandomPalette === 'function' && typeof colorPalettes !== 'undefined' && typeof randomPaletteCounter !== 'undefined') {
+            const newPalette = generateRandomPalette(); 
+            colorPalettes.push(newPalette);
+            return newPalette.name;
+        }
+        return null;
+      },
+
+      // Presets
+      getBuiltInPresets: () => {
+        return (typeof builtInPresets !== 'undefined') ? builtInPresets : [];
+      },
+      loadPreset: (presetName) => {
+        if (typeof builtInPresets === 'undefined' || typeof window.appInterface.settings === 'undefined' || typeof localStorage === 'undefined' || typeof USER_PRESETS_LOCALSTORAGE_KEY === 'undefined') { return false; }
+        
+        let presetToLoad = builtInPresets.find(p => p.name === presetName && p.settings);
+        if (!presetToLoad) {
+            const userPresets = JSON.parse(localStorage.getItem(USER_PRESETS_LOCALSTORAGE_KEY) || '{}');
+            if (userPresets[presetName]) {
+                presetToLoad = { name: presetName, settings: userPresets[presetName] };
+            }
+        }
+
+        if (presetToLoad && presetToLoad.settings) {
+            console.log("p5Functions: Loading preset", presetName, presetToLoad.settings);
+            for (const key in presetToLoad.settings) {
+                if (window.appInterface.settings.hasOwnProperty(key)) {
+                    if (typeof window.appInterface.settings[key] === 'number') {
+                        window.appInterface.settings[key] = parseFloat(presetToLoad.settings[key]);
+                    } else if (typeof window.appInterface.settings[key] === 'boolean') {
+                        window.appInterface.settings[key] = (String(presetToLoad.settings[key]).toLowerCase() === 'true');
+                    } else {
+                        window.appInterface.settings[key] = presetToLoad.settings[key];
+                    }
+                } else {
+                    console.warn(`Preset key \\"${key}\\" not found in current settings.`);
+                }
+            }
+            window.appInterface.settings.currentPresetName = presetToLoad.name;
+            
+            if (typeof window.appInterface.p5Functions.setActivePalette === 'function') { window.appInterface.p5Functions.setActivePalette(window.appInterface.settings.currentPaletteName); }
+            if (typeof window.appInterface.p5Functions.updateBallShapesAndPreprocessing === 'function') { window.appInterface.p5Functions.updateBallShapesAndPreprocessing(); }
+            
+            // Most reliable way to apply all settings from a preset is to re-initialize
+            if (typeof window.appInterface.settings.resetSimulation === 'function') {
+                 window.appInterface.settings.resetSimulation(); 
+            } else if (typeof initializeBalls === 'function') {
+                 initializeBalls(); 
+            }
+
+            if (typeof window.customGuiUpdate === 'function') {
+                 window.customGuiUpdate(); 
+            }
+            
+            // Update recording status in GUI if p5Functions is called directly by a preset load
+            if (typeof window.appInterface.p5Functions.updateRecordingStatusDisplay === 'function') {
+                 window.appInterface.p5Functions.updateRecordingStatusDisplay(window.appInterface.settings.recordingStatusMessage);
+            }
+
+            console.log("p5Functions: Preset loaded successfully:", presetToLoad.name);
+            return true;
+        } else {
+            console.warn("p5Functions: Preset not found or has no settings:", presetName);
+            window.appInterface.settings.currentPresetName = ""; // Fallback to placeholder if load fails
+            return false;
+        }
+      },
+      saveUserPreset: (presetNameToSave) => {
+        if (typeof window.appInterface.settings === 'undefined' || typeof localStorage === 'undefined' || typeof USER_PRESETS_LOCALSTORAGE_KEY === 'undefined') { return; }
+
+        const userPresets = JSON.parse(localStorage.getItem(USER_PRESETS_LOCALSTORAGE_KEY) || '{}');
+        const currentSettingsSnapshot = {};
+        const keysToSave = [
+            'ballShape', 'cornerRadius', 'imageEdgeFeather', 'imageMaskBlur', 'shapeOscillationStrength',
+            'numBalls', 'speedMultiplier', 'backgroundColor', 'blurRadius', 'alphaThreshold', 'currentPaletteName',
+            'randomizeBallRadii', 'minRadiusFactor', 'maxRadiusFactor',
+            'collisionSquashDuration', 'collisionReboundSettleTime', 'collisionReboundOvershoot', 
+            'collisionReboundDamping', 'collisionMinDeform', 'collisionMaxDeform'
+        ];
+
+        keysToSave.forEach(key => {
+            if (window.appInterface.settings.hasOwnProperty(key)) { // Changed from window.settings
+                currentSettingsSnapshot[key] = window.appInterface.settings[key]; // Changed from window.settings
+            }
+        });
+
+        userPresets[presetNameToSave] = currentSettingsSnapshot;
+        localStorage.setItem(USER_PRESETS_LOCALSTORAGE_KEY, JSON.stringify(userPresets));
+        window.appInterface.settings.currentPresetName = presetNameToSave; // Ensure current preset is updated - Correctly uses appInterface
+        window.appInterface.settings.newPresetName = presetNameToSave; // Also update the input field suggestion if desired - Correctly uses appInterface
+        console.log("p5Functions: Preset saved:", presetNameToSave);
+        // customGuiUpdate is called by script.js's preset save logic to refresh lists
+      },
+      deleteUserPreset: (presetNameToDelete) => {
+        if (typeof localStorage === 'undefined' || typeof USER_PRESETS_LOCALSTORAGE_KEY === 'undefined') { return; }
+        const userPresets = JSON.parse(localStorage.getItem(USER_PRESETS_LOCALSTORAGE_KEY) || '{}');
+        if (userPresets[presetNameToDelete]) {
+            delete userPresets[presetNameToDelete];
+            localStorage.setItem(USER_PRESETS_LOCALSTORAGE_KEY, JSON.stringify(userPresets));
+            console.log("p5Functions: Preset deleted:", presetNameToDelete);
+            if (typeof window.settings !== 'undefined' && window.settings.currentPresetName === presetNameToDelete) {
+                 window.settings.currentPresetName = ""; // Reset to placeholder value
+            }
+        }
+      },
+      // Recording Functions - Simplified for PNG sequence only
+      startRecording: () => {
+        if (window.settings.isRecording) {
+            console.log("Already recording PNG sequence.");
+            return;
+        }
+
+        // Generate a timestamped folder name
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = nf(now.getMonth() + 1, 2); // Months are 0-indexed
+        const day = nf(now.getDate(), 2);
+        const hours = nf(now.getHours(), 2);
+        const minutes = nf(now.getMinutes(), 2);
+        const seconds = nf(now.getSeconds(), 2);
+        window.settings.recordingFolderName = `metaball_frames_${year}${month}${day}_${hours}${minutes}${seconds}`;
+
+        let targetFramerate = frameRate(); 
+        let targetDurationSeconds = window.settings.recordingDurationSeconds;
+        window.settings.totalFramesToRecord = Math.floor(targetDurationSeconds * targetFramerate);
+        window.settings.frameCountForRecording = 0;
+        window.settings.isRecording = true;
+        
+        window.settings.recordingStatusMessage = `Rec. PNGs... 0/${window.settings.totalFramesToRecord}`;
+        console.log(`p5Functions: Starting PNG sequence recording into folder: ${window.settings.recordingFolderName}. Duration: ${targetDurationSeconds}s, Target Frames: ${window.settings.totalFramesToRecord} @ ${targetFramerate.toFixed(2)}fps`);
+
+        if (typeof window.p5Functions.updateRecordingStatusDisplay === 'function') {
+            window.p5Functions.updateRecordingStatusDisplay(window.settings.recordingStatusMessage);
+        }
+      },
+      stopRecording: (completed = false) => {
+          if (!window.settings.isRecording) return;
+
+          let message;
+          const recordedFrames = window.settings.frameCountForRecording;
+          if (completed) {
+              message = `Finished. Saved ${recordedFrames} PNGs.`;
+              console.log(`p5Functions: PNG sequence recording finished. Saved ${recordedFrames} frames.`);
+          } else {
+              message = `Stopped. Saved ${recordedFrames} PNGs.`;
+              console.log(`p5Functions: PNG sequence recording stopped by user. Saved ${recordedFrames} frames.`);
+          }
+          
+          window.settings.isRecording = false;
+          window.settings.recordingStatusMessage = message;
+          window.settings.frameCountForRecording = 0; 
+          // totalFramesToRecord is reset/recalculated on next start
+
+          if (typeof window.p5Functions.updateRecordingStatusDisplay === 'function') {
+              window.p5Functions.updateRecordingStatusDisplay(window.settings.recordingStatusMessage);
+          }
+      },
+      updateRecordingStatusDisplay: (message) => {
+        if(typeof window.settings !== 'undefined') {
+            window.settings.recordingStatusMessage = message;
+        }
+      },
+      getRecordingSettings: () => { 
+          if (typeof window.settings === 'undefined') return {};
+          return {
+              duration: window.settings.recordingDurationSeconds,
+              // format: removed
+              status: window.settings.recordingStatusMessage,
+              isRecording: window.settings.isRecording
+          };
+      }
+    }; // End of p5Functions object
+
+    // Initialize the custom GUI script once the DOM is fully loaded and ready
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log("DOMContentLoaded fired in animation.html.");
+        console.log("Type of window.initCustomGui just before call:", typeof window.initCustomGui);
+        console.log("Value of window.settings in animation.html listener just before call:", JSON.stringify(window.settings)); // Log content
+        if (window.settings) {
+            console.log("window.settings.currentPaletteName in animation.html listener:", window.settings.currentPaletteName);
+        }
+
+        if (typeof window.initCustomGui === 'function') {
+            window.initCustomGui();
+        } else {
+            console.error("CRITICAL: Custom GUI initialization function (initCustomGui) not found after DOMContentLoaded. GUI will not work.");
+        }
+    });
+
+    // Ensure script.js is loaded after p5.js and this p5Functions object is defined.
+    // The <script src="script.js" defer></script>
+
+  </script>
+  <script src="script.js" defer></script>
+</body>
+
+</html>
